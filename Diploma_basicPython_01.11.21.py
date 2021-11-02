@@ -8,10 +8,10 @@ import time
 
 class PhotoBackup():
     
-    def __init__(self, token_vk, token_ya, owner_id):
+    def __init__(self, token_vk, token_ya, user_name):
         self.token_vk = token_vk
         self.token_ya = token_ya
-        self.owner_id = owner_id
+        self.user_name = user_name
         self.path = f'Backup_{date.today()}'
 
 
@@ -52,11 +52,21 @@ class PhotoBackup():
                 "file_name": f'{file}.jpg',
                 "size": f'{info_dict[file][1]}'
             })
-        with open(f'photo_info_{self.owner_id}.json', 'w') as info_file:
+        with open(f'photo_info_{self.user_name}.json', 'w') as info_file:
             json.dump(name_size, info_file, sort_keys=True, indent=0)
 
 
     def get_photos(self, token_vk):
+        url = 'https://api.vk.com/method/users.get'
+        params = {
+            'user_ids': self.user_name,
+            'access_token': token_vk,
+            'v': '5.131'
+        }
+        user_id_conteiner = requests.get(url, params=params).json()
+        for item in user_id_conteiner['response']:
+            user_id = item['id']
+
         url = 'https://api.vk.com/method/photos.get'
         params = {
             'access_token': token_vk,
@@ -66,12 +76,9 @@ class PhotoBackup():
             'extended': '1'
         }
 
-        while True:
-            params['owner_id'] = self.owner_id
-            if params['owner_id'].isdigit() == False:
-                pprint('Введите id пользователя в виде числа!')
-            else:
-                break
+        params['owner_id'] = self.user_name
+        if params['owner_id'].isdigit() == False:
+            params['owner_id'] = user_id
 
         result = requests.get(url, params=params).json()
         return result
@@ -118,10 +125,10 @@ if __name__ == '__main__':
     # with open('token_ya.txt', 'r') as file_ya:
     #     token_ya = file_ya.readline()
 
-    owner_id = input('Введите id пользователя: ')
+    user_name = input('Введите id или username пользователя: ')
     token_ya = input("Введите токен с Полигона Яндекс.Диска: ")
 
-    backuper = PhotoBackup(token_vk, token_ya, owner_id)
+    backuper = PhotoBackup(token_vk, token_ya, user_name)
     response = PhotoBackup.get_photos(backuper, token_vk)
     backuper.create_folder()
     photos = backuper.make_photos_dict(response)
