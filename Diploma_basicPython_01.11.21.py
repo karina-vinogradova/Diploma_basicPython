@@ -8,16 +8,12 @@ import time
 
 class PhotoBackup():
     
-    def __init__(self, token_vk, token_ya, user_name):
+    def __init__(self, token_vk, user_name):
         self.token_vk = token_vk
-        self.token_ya = token_ya
         self.user_name = user_name
-        self.path = f'Backup_{date.today()}'
+        
 
-
-    def make_photos_dict(self, response):
-        # count = int(input("Сколько фотографий загрузить на Яндекс.Диск? "))
-        count = 5
+    def make_photos_dict(self, response, count):
         type_max = 0
         info_dict = {}
         sizes_list = ['s', 'm', 'x', 'o', 'p', 'q', 'r', 'y', 'z', 'w']
@@ -42,19 +38,6 @@ class PhotoBackup():
 
         # return info_sorted_dict
         return info_dict
-
-
-    def make_json_file(self, info_dict):
-        name_size = []
-
-        for file in info_dict:
-            name_size.append({
-                "file_name": f'{file}.jpg',
-                "size": f'{info_dict[file][1]}'
-            })
-        with open(f'photo_info_{self.user_name}.json', 'w') as info_file:
-            json.dump(name_size, info_file, sort_keys=True, indent=0)
-
 
     def get_photos(self, token_vk):
         url = 'https://api.vk.com/method/users.get'
@@ -82,6 +65,25 @@ class PhotoBackup():
 
         result = requests.get(url, params=params).json()
         return result
+
+
+    def make_json_file(self, info_dict):
+        name_size = []
+
+        for file in info_dict:
+            name_size.append({
+                "file_name": f'{file}.jpg',
+                "size": f'{info_dict[file][1]}'
+            })
+        with open(f'photo_info_{self.user_name}.json', 'w') as info_file:
+            json.dump(name_size, info_file, sort_keys=True, indent=0)
+
+
+class YaUploader():
+
+    def __init__(self, token_ya):
+        self.token_ya = token_ya
+        self.path = f'Backup_{date.today()}'
 
     def get_headers(self):
         return {
@@ -116,6 +118,7 @@ class PhotoBackup():
         for i in tqdm(photo):
             time.sleep(0.05)
         pprint(f'Успешно загружено {len(photos)} файлов')
+    
 
 
 if __name__ == '__main__':
@@ -127,10 +130,14 @@ if __name__ == '__main__':
 
     user_name = input('Введите id или username пользователя: ')
     token_ya = input("Введите токен с Полигона Яндекс.Диска: ")
+    count = int(input("Сколько фотографий загрузить на Яндекс.Диск? "))
 
-    backuper = PhotoBackup(token_vk, token_ya, user_name)
+    backuper = PhotoBackup(token_vk, user_name)
+    uploader = YaUploader(token_ya)
+
     response = PhotoBackup.get_photos(backuper, token_vk)
-    backuper.create_folder()
-    photos = backuper.make_photos_dict(response)
+    photos = backuper.make_photos_dict(response, count)
     info_file = backuper.make_json_file(photos)
-    result = backuper.upload(photos)
+
+    uploader.create_folder()
+    result = uploader.upload(photos)
