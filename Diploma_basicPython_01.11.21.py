@@ -4,9 +4,9 @@ from datetime import date
 import json
 from tqdm import tqdm
 import time
+import hashlib
 
-
-class PhotoBackup():
+class BackupVk():
     
     def __init__(self, token_vk, user_name):
         self.token_vk = token_vk
@@ -79,6 +79,58 @@ class PhotoBackup():
             json.dump(name_size, info_file, sort_keys=True, indent=0)
 
 
+class BackupOk():
+    def __init__(self, access_token, application_key, session_secret_key):
+        self.access_token = access_token
+        self.application_key = application_key
+        self.session_secret_key = session_secret_key
+
+    def get_photo_ok(self):
+        # uid = '78653915117'
+        # fid = '553576468505'
+        fid = input("Введите ID пользователя: ")
+
+        sig_str  = f'application_key={application_key}fid={fid}format=jsonmethod=photos.getPhotos{session_secret_key}'
+        sig = (hashlib.md5(bytes(sig_str, encoding='utf-8'))).hexdigest()
+
+        url = f'https://api.ok.ru/fb.do?application_key={application_key}&fid={fid}&format=json&method=photos.getPhotos&sig={sig}&access_token={access_token}'
+
+        result = requests.get(url=url).json()
+        return result
+
+
+    def make_id_dict(self, photo_json):
+        about = photo_json['photos']
+        id_dict = {}
+        for photo in about:
+            id_dict[photo['id']] = photo['pic640x480']
+
+        return id_dict
+
+
+    def get_photos_name(self, id_dict, count):
+        name_dict = {}
+        for photo_id in id_dict.keys():
+            sig_str = f'application_key={self.application_key}format=jsonmethod=photos.getPhotoInfophoto_id={photo_id}{session_secret_key}'
+            sig = (hashlib.md5(bytes(sig_str, encoding='utf-8'))).hexdigest()
+            url = f'https://api.ok.ru/fb.do?application_key={self.application_key}&format=json&method=photos.getPhotoInfo&photo_id={photo_id}&sig={sig}&access_token={self.access_token}'
+        
+            result = requests.get(url=url).json()
+
+            find_likes = result['photo']
+            for key, likes in find_likes.items():
+                if key == 'like_count':
+                    if count > 0:
+                        if likes in name_dict.keys():
+                            key_dict = f'{likes}_{photo_id}'
+                            name_dict.setdefault(key_dict, id_dict[photo_id])
+                        else:
+                            name_dict.setdefault(likes, id_dict[photo_id])
+                    count -= 1
+
+        return name_dict
+
+
 class YaUploader():
 
     def __init__(self, token_ya):
@@ -101,7 +153,10 @@ class YaUploader():
 
         for key, value in photos.items():
             photo = f'{self.path}/{key}.jpg'
-            path_to_file = f'{value[0]}'
+            if type(value) == list:
+                path_to_file = f'{value[0]}'
+            elif type(value) == str:
+                path_to_file = f'{value}'
 
             params = {
                 'path': photo,
@@ -128,16 +183,38 @@ if __name__ == '__main__':
     # with open('token_ya.txt', 'r') as file_ya:
     #     token_ya = file_ya.readline()
 
-    user_name = input('Введите id или username пользователя: ')
-    token_ya = input("Введите токен с Полигона Яндекс.Диска: ")
-    count = int(input("Сколько фотографий загрузить на Яндекс.Диск? "))
+    social = input("Из какой соц.сети будем бэкапить фотки - VK или OK: ").lower()
+    
 
-    backuper = PhotoBackup(token_vk, user_name)
-    uploader = YaUploader(token_ya)
+    if social == 'vk':
+        token_ya = input("Введите токен с Полигона Яндекс.Диска: ")
+        count = int(input("Сколько фотографий загрузить на Яндекс.Диск? "))
+        user_name = input('Введите id или username пользователя: ')
+        backuper = BackupVk(token_vk, user_name)
+        response = BackupVk.get_photos(backuper, token_vk)
+        photos = backuper.make_photos_dict(response, count)
+        info_file = backuper.make_json_file(photos)
+        uploader = YaUploader(token_ya)
+        uploader.create_folder()
+        result = uploader.upload(photos)
 
-    response = PhotoBackup.get_photos(backuper, token_vk)
-    photos = backuper.make_photos_dict(response, count)
-    info_file = backuper.make_json_file(photos)
+    elif social == 'ok':
+        token_ya = input("Введите токен с Полигона Яндекс.Диска: ")
+        count = int(input("Сколько фотографий загрузить на Яндекс.Диск? "))
+        with open('token_ok.txt', 'r') as file:
+            access_token = file.readline()[:-1]
+            application_key = file.readline()[:-1]
+            session_secret_key = file.readline()[:-1]
 
-    uploader.create_folder()
-    result = uploader.upload(photos)
+        ok_loader = BackupOk(access_token, application_key, session_secret_key)
+        response = ok_loader.get_photo_ok()
+        id_dict = ok_loader.make_id_dict(response)
+        dict_for_upload = ok_loader.get_photos_name(id_dict, count)
+        uploader = YaUploader(token_ya)
+        uploader.create_folder()
+        result = uploader.upload(dict_for_upload)
+
+    else:
+        pprint('Не знаю такой соц.сети')
+    
+    
