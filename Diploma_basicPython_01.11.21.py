@@ -75,25 +75,23 @@ class BackupVk():
                 "file_name": f'{file}.jpg',
                 "size": f'{info_dict[file][1]}'
             })
-        with open(f'photo_info_{self.user_name}.json', 'w') as info_file:
+        with open(f'photo_info_vk_{self.user_name}.json', 'w') as info_file:
             json.dump(name_size, info_file, sort_keys=True, indent=0)
 
 
 class BackupOk():
-    def __init__(self, access_token, application_key, session_secret_key):
+    def __init__(self, access_token, application_key, session_secret_key, fid):
         self.access_token = access_token
         self.application_key = application_key
         self.session_secret_key = session_secret_key
+        self.fid = fid
 
-    def get_photo_ok(self):
-        # uid = '78653915117'
-        # fid = '553576468505'
-        fid = input("Введите ID пользователя: ")
+    def get_photo_ok(self):        
 
-        sig_str  = f'application_key={application_key}fid={fid}format=jsonmethod=photos.getPhotos{session_secret_key}'
+        sig_str  = f'application_key={application_key}fid={self.fid}format=jsonmethod=photos.getPhotos{session_secret_key}'
         sig = (hashlib.md5(bytes(sig_str, encoding='utf-8'))).hexdigest()
 
-        url = f'https://api.ok.ru/fb.do?application_key={application_key}&fid={fid}&format=json&method=photos.getPhotos&sig={sig}&access_token={access_token}'
+        url = f'https://api.ok.ru/fb.do?application_key={application_key}&fid={self.fid}&format=json&method=photos.getPhotos&sig={sig}&access_token={access_token}'
 
         result = requests.get(url=url).json()
         return result
@@ -129,6 +127,17 @@ class BackupOk():
                     count -= 1
 
         return name_dict
+
+    def make_json_file(self, dict_for_upload):
+        name_size = []
+
+        for file in dict_for_upload:
+            name_size.append({
+                "file_name": f'{file}.jpg',
+                "size": 'pic640x480'
+            })
+        with open(f'photo_info_ok_{self.fid}.json', 'w') as info_file:
+            json.dump(name_size, info_file, sort_keys=True, indent=0)
 
 
 class YaUploader():
@@ -201,15 +210,18 @@ if __name__ == '__main__':
     elif social == 'ok':
         token_ya = input("Введите токен с Полигона Яндекс.Диска: ")
         count = int(input("Сколько фотографий загрузить на Яндекс.Диск? "))
+        fid = input("Введите ID пользователя: ")
+
         with open('token_ok.txt', 'r') as file:
             access_token = file.readline()[:-1]
             application_key = file.readline()[:-1]
             session_secret_key = file.readline()[:-1]
 
-        ok_loader = BackupOk(access_token, application_key, session_secret_key)
+        ok_loader = BackupOk(access_token, application_key, session_secret_key, fid)
         response = ok_loader.get_photo_ok()
         id_dict = ok_loader.make_id_dict(response)
         dict_for_upload = ok_loader.get_photos_name(id_dict, count)
+        info_file = ok_loader.make_json_file(dict_for_upload)
         uploader = YaUploader(token_ya)
         uploader.create_folder()
         result = uploader.upload(dict_for_upload)
