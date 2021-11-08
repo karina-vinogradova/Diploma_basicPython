@@ -162,6 +162,7 @@ class YaUploader():
 
         for key, value in photos.items():
             photo = f'{self.path}/{key}.jpg'
+            pprint(photo)
             if type(value) == list:
                 path_to_file = f'{value[0]}'
             elif type(value) == str:
