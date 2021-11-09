@@ -24,9 +24,13 @@ class StartModule():
 
     def backup_ok(self, count, user_name):
         with open('token_ok.txt', 'r') as file:
-            access_token = file.readline()[:-1]
-            application_key = file.readline()[:-1]
-            session_secret_key = file.readline()[:-1]
+            read_access_token = file.readline().split(':')
+            access_token = read_access_token[1][1:-2]
+            read_application_key = file.readline().split(':')
+            application_key = read_application_key[1][1:-2]
+            read_session_secret_key = file.readline().split(':')
+            session_secret_key = read_session_secret_key[1][1:-2]
+            
 
         ok_loader = BackupOk.BackupOk(access_token, application_key, session_secret_key, user_name)
         response = ok_loader.get_photo_ok()
